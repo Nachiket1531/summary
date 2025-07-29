@@ -98,7 +98,7 @@ def iterative_summarize(api_key, all_text, max_tokens=100000, model="gpt-4o-mini
             input_tokens = count_tokens(input_text, model=model)
         # Stream summary for this chunk
         chunk_summary = ""
-        yield f"\n--- Processing chunk {i+1}/{len(chunks)} (input tokens: {input_tokens}) ---\n"
+        yield f"\n--- ---\n"
         for part in summarize_text_with_ai(api_key, input_text):
             chunk_summary += part
             yield part
@@ -131,11 +131,10 @@ if uploaded_file and api_key:
                     st.success("✅ Summary generating...")
                     st.markdown("### 📌 Summary:")
                     placeholder = st.empty()
-                    # --- Use iterative summarization, show only final summary ---
-                    outputs = list(iterative_summarize(api_key, pdf_text, max_tokens=100000, model="gpt-4o-mini"))
-                    if outputs:
-                        final_summary = outputs[-1]
-                        placeholder.markdown(final_summary)
+                    summary_text = ""
+                    for chunk in iterative_summarize(api_key, pdf_text, max_tokens=100000, model="gpt-4o-mini"):
+                        summary_text += chunk
+                        placeholder.markdown(summary_text)
             except Exception as e:
                 st.error(f"⚠️ Error: {e}")
 elif uploaded_file and not api_key:
