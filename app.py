@@ -3,7 +3,6 @@ from PyPDF2 import PdfReader
 from openai import OpenAI
 import tiktoken
 
-
 # 📄 Extract text from PDF
 def extract_text_from_pdf(uploaded_file):
     reader = PdfReader(uploaded_file)
@@ -12,7 +11,7 @@ def extract_text_from_pdf(uploaded_file):
         text += page.extract_text() or ""
     return text
 
-# --- NEW: Token counting and chunking ---
+# --- Token counting and chunking ---
 def count_tokens(text, model="gpt-4o-mini"):
     if tiktoken is None:
         return len(text.split())  # fallback: rough word count
@@ -75,16 +74,15 @@ def summarize_text_with_ai(api_key, text):
     for chunk in response_stream:
         if chunk.choices and chunk.choices[0].delta.content:
             full_response += chunk.choices[0].delta.content
-            yield chunk.choices[0].delta.content
+    return full_response
 
-# --- NEW: Iterative summarization for large PDFs ---
+# --- Modified: Iterative summarization for large PDFs ---
 def iterative_summarize(api_key, all_text, max_tokens=100000, model="gpt-4o-mini"):
     chunks = split_text_by_token_limit(all_text, max_tokens=max_tokens, model=model)
     summary = ""
     for i, chunk in enumerate(chunks):
         if i == 0:
             input_text = chunk
-            input_tokens = count_tokens(input_text, model=model)
         else:
             # Combine previous summary and next chunk, but ensure it fits in token limit
             combined = summary + "\n" + chunk
@@ -95,16 +93,10 @@ def iterative_summarize(api_key, all_text, max_tokens=100000, model="gpt-4o-mini
                 chunk = " ".join(chunk_words[:int(len(chunk_words)*0.9)])
                 combined = summary + "\n" + chunk
             input_text = combined
-            input_tokens = count_tokens(input_text, model=model)
-        # Stream summary for this chunk
-        chunk_summary = ""
-        yield f"\n--- ---\n"
-        for part in summarize_text_with_ai(api_key, input_text):
-            chunk_summary += part
-            yield part
-        summary = chunk_summary  # Use this as the summary for next round
-    yield f"\n--- Final summary complete! ---\n"
-    yield summary
+        # Generate summary for this chunk
+        summary = summarize_text_with_ai(api_key, input_text)
+    # Yield only the final summary
+    yield f"\n------\n{summary}"
 
 # 🚀 Streamlit UI
 st.set_page_config(page_title="Finance PDF Summarizer", layout="centered")
@@ -129,7 +121,7 @@ if uploaded_file and api_key:
                     st.error("❌ No readable text found in the PDF.")
                 else:
                     st.success("✅ Summary generating...")
-                    st.markdown("### 📌 Summary:")
+                    
                     placeholder = st.empty()
                     summary_text = ""
                     for chunk in iterative_summarize(api_key, pdf_text, max_tokens=100000, model="gpt-4o-mini"):
